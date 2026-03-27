@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Movimientos - Restaurante</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Librería para generar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- Librería para generar Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🍔 Inventario</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">Ingresos/Egresos</a>
+                </li>
+                <li class="nav-item">
+                    <a href="stock.html" class="nav-link">Stock de Inventario</a>
+                </li>
+                <li class="nav-item">
+                    <a href="historial.html" class="nav-link active">Historial</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📊 Historial de Movimientos</h1>
+            <p>Registro completo de entradas y salidas</p>
+        </div>
+
+        <div class="toggle-section">
+            <button class="toggle-btn active" onclick="cambiarTipoHistorial('Ingreso')">📥 INGRESOS</button>
+            <button class="toggle-btn" onclick="cambiarTipoHistorial('Egreso')">📤 EGRESOS</button>
+        </div>
+
+        <div class="historial-content">
+            <!-- Botones de descarga -->
+            <div class="download-section">
+                <h3>📥 Descargar datos de la página actual:</h3>
+                <div class="download-buttons">
+                    <button class="btn-download btn-pdf" onclick="descargarPDF()">
+                        📄 Descargar PDF
+                    </button>
+                    <button class="btn-download btn-excel" onclick="descargarExcel()">
+                        📊 Descargar Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de historial -->
+            <div class="history-table">
+                <table id="tablaHistorial">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Cantidad</th>
+                            <th id="columnaExtra">Precio USD</th>
+                            <th id="columnaExtra2">Precio Bs</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historialBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #999;">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            <div class="pagination">
+                <button id="btnAnterior" class="btn-pagination" onclick="cambiarPagina(-1)">
+                    ← Anterior
+                </button>
+                <span id="paginaInfo" class="pagina-info">Página 1 de 1</span>
+                <button id="btnSiguiente" class="btn-pagination" onclick="cambiarPagina(1)">
+                    Siguiente →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let paginaActual = 1;
+        let totalPaginas = 1;
+        let tipoActual = 'Ingreso';
+        let datosActuales = [];
+
+        // Cargar ingresos al inicio
+        window.addEventListener('DOMContentLoaded', () => {
+            cargarHistorial();
+        });
+
+        function cambiarTipoHistorial(tipo) {
+            tipoActual = tipo;
+            paginaActual = 1;
+            
+            // Actualizar botones
+            const botones = document.querySelectorAll('.toggle-btn');
+            botones.forEach(btn => btn.classList.remove('active'));
+            
+            if (tipo === 'Ingreso') {
+                botones[0].classList.add('active');
+                document.getElementById('columnaExtra').textContent = 'Precio USD';
+                document.getElementById('columnaExtra2').textContent = 'Precio Bs';
+            } else {
+                botones[1].classList.add('active');
+                document.getElementById('columnaExtra').textContent = 'Razón';
+                document.getElementById('columnaExtra2').textContent = '-';
+            }
+            
+            cargarHistorial();
+        }
+
+        async function cargarHistorial() {
+            try {
+                const response = await fetch(`${API_URL}/historial/${tipoActual}?page=${paginaActual}&limit=15`);
+                const data = await response.json();
+
+                datosActuales = data.movimientos;
+                totalPaginas = data.totalPages;
+                
+                mostrarHistorial(data.movimientos);
+                actualizarPaginacion();
+
+            } catch (error) {
+                console.error('Error al cargar historial:', error);
+                alert('Error al cargar el historial');
+            }
+        }
+
+        function mostrarHistorial(movimientos) {
+            const tbody = document.getElementById('historialBody');
+            tbody.innerHTML = '';
+
+            if (movimientos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #999;">No hay ${tipoActual === 'Ingreso' ? 'ingresos' : 'egresos'} registrados</td></tr>`;
+                return;
+            }
+
+            movimientos.forEach(mov => {
+                const fecha = new Date(mov.fecha);
+                const tr = document.createElement('tr');
+                tr.className = mov.tipo === 'Ingreso' ? 'ingreso-row' : 'egreso-row';
+                
+                let columna6, columna7;
+                if (tipoActual === 'Ingreso') {
+                    columna6 = `$${mov.precio_usd ? mov.precio_usd.toFixed(2) : '0.00'}`;
+                    columna7 = `Bs ${mov.precio_bs ? mov.precio_bs.toFixed(2) : '0.00'}`;
+                } else {
+                    columna6 = mov.razon || '-';
+                    columna7 = '-';
+                }
+
+                tr.innerHTML = `
+                    <td>${fecha.toLocaleDateString('es-VE')}</td>
+                    <td>${fecha.toLocaleTimeString('es-VE')}</td>
+                    <td><strong>${mov.producto_nombre}</strong></td>
+                    <td>${mov.categoria}</td>
+                    <td>${mov.cantidad.toFixed(2)} ${mov.unidad}</td>
+                    <td>${columna6}</td>
+                    <td>${columna7}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function cambiarPagina(direccion) {
+            const nuevaPagina = paginaActual + direccion;
+            if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+                paginaActual = nuevaPagina;
+                cargarHistorial();
+            }
+        }
+
+        function actualizarPaginacion() {
+            document.getElementById('paginaInfo').textContent = `Página ${paginaActual} de ${totalPaginas}`;
+            document.getElementById('btnAnterior').disabled = paginaActual === 1;
+            document.getElementById('btnSiguiente').disabled = paginaActual === totalPaginas;
+        }
+
+        // ========== DESCARGAR PDF ==========
+        function descargarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Título
+            doc.setFontSize(18);
+            doc.text(`Historial de ${tipoActual}s - Página ${paginaActual}`, 14, 20);
+            
+            doc.setFontSize(11);
+            doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-VE')}`, 14, 28);
+
+            // Preparar datos para la tabla
+            const headers = tipoActual === 'Ingreso' 
+                ? [['Fecha', 'Hora', 'Producto', 'Categoría', 'Cantidad', 'Precio USD', 'Precio Bs']]
+                : [['Fecha', 'Hora', 'Producto', 'Categoría', 'Cantidad', 'Razón']];
+
+            const rows = datosActuales.map(mov => {
+                const fecha = new Date(mov.fecha);
+                const baseRow = [
+                    fecha.toLocaleDateString('es-VE'),
+                    fecha.toLocaleTimeString('es-VE'),
+                    mov.producto_nombre,
+                    mov.categoria,
+                    `${mov.cantidad.toFixed(2)} ${mov.unidad}`
+                ];
+
+                if (tipoActual === 'Ingreso') {
+                    return [
+                        ...baseRow,
+                        `$${mov.precio_usd ? mov.precio_usd.toFixed(2) : '0.00'}`,
+                        `Bs ${mov.precio_bs ? mov.precio_bs.toFixed(2) : '0.00'}`
+                    ];
+                } else {
+                    return [...baseRow, mov.razon || '-'];
+                }
+            });
+
+            // Generar tabla
+            doc.autoTable({
+                head: headers,
+                body: rows,
+                startY: 35,
+                theme: 'striped',
+                headStyles: { fillColor: [102, 126, 234] },
+                styles: { fontSize: 9 }
+            });
+
+            doc.save(`Historial_${tipoActual}s_Pagina_${paginaActual}.pdf`);
+        }
+
+        // ========== DESCARGAR EXCEL ==========
+        function descargarExcel() {
+            // Preparar datos
+            const datos = datosActuales.map(mov => {
+                const fecha = new Date(mov.fecha);
+                const base = {
+                    'Fecha': fecha.toLocaleDateString('es-VE'),
+                    'Hora': fecha.toLocaleTimeString('es-VE'),
+                    'Producto': mov.producto_nombre,
+                    'Categoría': mov.categoria,
+                    'Cantidad': mov.cantidad.toFixed(2),
+                    'Unidad': mov.unidad
+                };
+
+                if (tipoActual === 'Ingreso') {
+                    return {
+                        ...base,
+                        'Precio USD': mov.precio_usd ? mov.precio_usd.toFixed(2) : '0.00',
+                        'Precio Bs': mov.precio_bs ? mov.precio_bs.toFixed(2) : '0.00'
+                    };
+                } else {
+                    return {
+                        ...base,
+                        'Razón': mov.razon || '-'
+                    };
+                }
+            });
+
+            // Crear libro de Excel
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(datos);
+
+            // Ajustar ancho de columnas
+            ws['!cols'] = [
+                { wch: 12 }, // Fecha
+                { wch: 10 }, // Hora
+                { wch: 25 }, // Producto
+                { wch: 15 }, // Categoría
+                { wch: 10 }, // Cantidad
+                { wch: 10 }, // Unidad
+                { wch: 12 }, // Precio USD / Razón
+                { wch: 12 }  // Precio Bs (solo ingresos)
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, `${tipoActual}s`);
+            XLSX.writeFile(wb, `Historial_${tipoActual}s_Pagina_${paginaActual}.xlsx`);
+        }
+    </script>
+</body>
+</html>

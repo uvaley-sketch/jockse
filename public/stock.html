@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock de Inventario - Restaurante</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🍔 Inventario</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">Ingresos/Egresos</a>
+                </li>
+                <li class="nav-item">
+                    <a href="stock.html" class="nav-link active">Stock de Inventario</a>
+                </li>
+                <li class="nav-item">
+                    <a href="historial.html" class="nav-link">Historial</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📦 Stock de Inventario</h1>
+            <p>Visualización del inventario actual</p>
+        </div>
+
+        <div class="stock-content">
+            <div class="stock-filter">
+                <h2 class="section-title">Seleccionar Categoría</h2>
+                <div class="form-group">
+                    <label>Categoría:</label>
+                    <select id="categoriaStock" onchange="cargarStock()">
+                        <option value="">Seleccione una categoría...</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Carnes">Carnes</option>
+                        <option value="Verduras">Verduras</option>
+                        <option value="Insumos">Insumos/Materias Primas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="stockTableContainer" class="stock-table-container hidden">
+                <h2 class="section-title">Productos en <span id="categoriaNombre"></span></h2>
+                
+                <div class="history-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                                <th>Precio USD</th>
+                                <th>Precio Bs</th>
+                                <th>Última Actualización</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                <div id="pagination" class="pagination">
+                    <button id="btnAnterior" class="btn-pagination" onclick="cambiarPagina(-1)">
+                        ← Anterior
+                    </button>
+                    <span id="paginaInfo" class="pagina-info">Página 1 de 1</span>
+                    <button id="btnSiguiente" class="btn-pagination" onclick="cambiarPagina(1)">
+                        Siguiente →
+                    </button>
+                </div>
+            </div>
+
+            <div id="sinDatos" class="sin-datos">
+                <p>📋 Seleccione una categoría para ver el stock</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let paginaActual = 1;
+        let totalPaginas = 1;
+        let categoriaActual = '';
+
+        async function cargarStock() {
+            const categoria = document.getElementById('categoriaStock').value;
+            
+            if (!categoria) {
+                document.getElementById('stockTableContainer').classList.add('hidden');
+                document.getElementById('sinDatos').classList.remove('hidden');
+                return;
+            }
+
+            categoriaActual = categoria;
+            paginaActual = 1;
+            await obtenerStock();
+        }
+
+        async function obtenerStock() {
+            try {
+                const response = await fetch(`${API_URL}/stock/${categoriaActual}?page=${paginaActual}&limit=10`);
+                const data = await response.json();
+
+                if (data.productos.length === 0) {
+                    document.getElementById('stockTableContainer').classList.add('hidden');
+                    document.getElementById('sinDatos').innerHTML = '<p>📋 No hay productos en esta categoría</p>';
+                    document.getElementById('sinDatos').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('sinDatos').classList.add('hidden');
+                document.getElementById('stockTableContainer').classList.remove('hidden');
+                document.getElementById('categoriaNombre').textContent = categoriaActual;
+
+                totalPaginas = data.totalPages;
+                mostrarProductos(data.productos);
+                actualizarPaginacion();
+
+            } catch (error) {
+                console.error('Error al cargar stock:', error);
+                alert('Error al cargar el stock');
+            }
+        }
+
+        function mostrarProductos(productos) {
+            const tbody = document.getElementById('stockBody');
+            tbody.innerHTML = '';
+
+            productos.forEach(producto => {
+                const fecha = new Date(producto.fecha_creacion);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${producto.nombre}</strong></td>
+                    <td>${producto.cantidad.toFixed(2)}</td>
+                    <td>${producto.unidad}</td>
+                    <td>$${producto.precio_usd ? producto.precio_usd.toFixed(2) : '0.00'}</td>
+                    <td>Bs ${producto.precio_bs ? producto.precio_bs.toFixed(2) : '0.00'}</td>
+                    <td>${fecha.toLocaleDateString('es-VE')} ${fecha.toLocaleTimeString('es-VE')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function cambiarPagina(direccion) {
+            const nuevaPagina = paginaActual + direccion;
+            if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+                paginaActual = nuevaPagina;
+                obtenerStock();
+            }
+        }
+
+        function actualizarPaginacion() {
+            document.getElementById('paginaInfo').textContent = `Página ${paginaActual} de ${totalPaginas}`;
+            document.getElementById('btnAnterior').disabled = paginaActual === 1;
+            document.getElementById('btnSiguiente').disabled = paginaActual === totalPaginas;
+        }
+    </script>
+</body>
+</html>
