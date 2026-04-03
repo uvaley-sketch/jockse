@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario - Restaurante</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🍔 Inventario</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link active">Ingresos/Egresos</a>
+                </li>
+                <li class="nav-item">
+                    <a href="stock.html" class="nav-link">Stock de Inventario</a>
+                </li>
+                <li class="nav-item">
+                    <a href="alertas.html" class="nav-link">Alertas de Stock</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>🍔 Sistema de Inventario</h1>
+            <p>Control de Ingresos y Egresos</p>
+        </div>
+
+        <div class="toggle-section">
+            <button class="toggle-btn active" onclick="mostrarSeccion('ingresos')">📥 INGRESOS</button>
+            <button class="toggle-btn" onclick="mostrarSeccion('egresos')">📤 EGRESOS</button>
+        </div>
+
+        <div class="content">
+            <!-- SECCIÓN DE INGRESOS -->
+            <div id="seccion-ingresos" class="form-section">
+                <h2 class="section-title">Registro de Ingresos</h2>
+                
+                <div class="tasa-cambio">
+                    <label>💱 Tasa de Cambio (Bs por USD):</label>
+                    <input type="number" id="tasaCambio" value="36.50" step="0.01" onchange="actualizarTasaCambio()">
+                </div>
+
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="tipoIngreso" value="nuevo" checked onchange="cambiarTipoIngreso()">
+                        Producto Nuevo
+                    </label>
+                    <label>
+                        <input type="radio" name="tipoIngreso" value="existente" onchange="cambiarTipoIngreso()">
+                        Producto Existente
+                    </label>
+                </div>
+
+                <form id="formIngreso" onsubmit="registrarIngreso(event)">
+                    <div class="form-group">
+                        <label>Categoría:</label>
+                        <select id="categoriaIngreso" required onchange="cargarProductosExistentes()">
+                            <option value="">Seleccione...</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Carnes">Carnes</option>
+                            <option value="Verduras">Verduras</option>
+                            <option value="Insumos">Insumos/Materias Primas</option>
+                        </select>
+                    </div>
+
+                    <div id="campoProductoNuevo" class="form-group">
+                        <label>Nombre del Producto:</label>
+                        <input type="text" id="nombreProducto">
+                    </div>
+
+                    <div id="campoProductoExistente" class="form-group hidden">
+                        <label>Seleccionar Producto:</label>
+                        <select id="productoExistente">
+                            <option value="">Seleccione un producto...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cantidad:</label>
+                        <input type="number" id="cantidad" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Unidad de Medida:</label>
+                        <select id="unidad" required>
+                            <option value="kg">Kilogramos (kg)</option>
+                            <option value="litro">Litros</option>
+                            <option value="unidad">Unidades</option>
+                        </select>
+                    </div>
+
+                    <div class="price-group">
+                        <div class="form-group">
+                            <label>Precio en USD ($):</label>
+                            <input type="number" id="precioUSD" step="0.01" oninput="convertirMoneda('usd')">
+                        </div>
+                        <div class="form-group">
+                            <label>Precio en Bs:</label>
+                            <input type="number" id="precioBs" step="0.01" oninput="convertirMoneda('bs')">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">✅ Registrar Ingreso</button>
+                </form>
+            </div>
+
+            <!-- SECCIÓN DE EGRESOS -->
+            <div id="seccion-egresos" class="form-section hidden">
+                <h2 class="section-title">Registro de Egresos</h2>
+
+                <form id="formEgreso" onsubmit="registrarEgreso(event)">
+                    <div class="form-group">
+                        <label>Categoría:</label>
+                        <select id="categoriaEgreso" required onchange="cargarProductosEgreso()">
+                            <option value="">Seleccione...</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Carnes">Carnes</option>
+                            <option value="Verduras">Verduras</option>
+                            <option value="Insumos">Insumos/Materias Primas</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Producto:</label>
+                        <select id="productoEgreso" required onchange="mostrarInfoProducto()">
+                            <option value="">Seleccione un producto...</option>
+                        </select>
+                    </div>
+
+                    <div id="infoProducto" class="tasa-cambio hidden">
+                        <p><strong>Cantidad Disponible:</strong> <span id="cantidadDisponible">0</span> <span id="unidadDisponible"></span></p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cantidad a Restar:</label>
+                        <input type="number" id="cantidadEgreso" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Razón del Egreso:</label>
+                        <select id="razonEgreso" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Venta">Venta</option>
+                            <option value="Uso en cocina">Uso en cocina</option>
+                            <option value="Merma">Merma</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">✅ Registrar Egreso</button>
+                </form>
+            </div>
+
+            <!-- HISTORIAL -->
+            <div class="history-section">
+                <div class="history-header">
+                    <h2 class="section-title">📋 Historial de Movimientos</h2>
+                    <button class="btn-pdf" onclick="exportarPaginaPDF()">📄 Exportar Página a PDF</button>
+                </div>
+                
+                <div class="history-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Tipo</th>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>TDC</th>
+                                <th>Precio/Razón</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: #999;">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- PAGINACIÓN -->
+                <div class="pagination">
+                    <button class="btn-pagination" id="btnAnterior" onclick="cambiarPagina(-1)">← Anterior</button>
+                    <span class="pagina-info" id="paginaInfo">Página 1 de 1</span>
+                    <button class="btn-pagination" id="btnSiguiente" onclick="cambiarPagina(1)">Siguiente →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

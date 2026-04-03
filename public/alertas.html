@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertas de Stock - Restaurante</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🍔 Inventario</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">Ingresos/Egresos</a>
+                </li>
+                <li class="nav-item">
+                    <a href="stock.html" class="nav-link">Stock de Inventario</a>
+                </li>
+                <li class="nav-item">
+                    <a href="alertas.html" class="nav-link active">Alertas de Stock</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Contenedor de notificaciones toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Niveles Mínimos de Stock</h1>
+            <p>Configuración y monitoreo de alertas de inventario</p>
+        </div>
+
+        <div class="historial-content">
+            <!-- Estadísticas -->
+            <div class="stats-container">
+                <div class="stat-box critico">
+                    <div class="stat-label">🔴 Crítico</div>
+                    <div class="stat-number critico" id="statCritico">0</div>
+                    <div class="stat-label">≤ 30% del mínimo</div>
+                </div>
+                <div class="stat-box bajo">
+                    <div class="stat-label">🟡 Bajo</div>
+                    <div class="stat-number bajo" id="statBajo">0</div>
+                    <div class="stat-label">≤ 70% del mínimo</div>
+                </div>
+                <div class="stat-box normal">
+                    <div class="stat-label">🟢 Normal</div>
+                    <div class="stat-number normal" id="statNormal">0</div>
+                    <div class="stat-label">> 70% del mínimo</div>
+                </div>
+            </div>
+
+            <!-- Formulario de configuración -->
+            <div class="config-form">
+                <h3>⚙️ Configurar Stock Mínimo</h3>
+                <form id="formConfig" onsubmit="configurarStockMinimo(event)">
+                    <div class="config-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Seleccionar Producto:</label>
+                            <select id="selectProducto" required>
+                                <option value="">Primero seleccione categoría...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Stock Mínimo:</label>
+                            <input type="number" id="inputStockMinimo" step="0.01" min="0" required placeholder="Ej: 10">
+                        </div>
+                        <button type="submit" class="btn-primary" style="padding: 12px 30px;">💾 Guardar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filtro por categoría -->
+            <div class="stock-filter">
+                <h3>📂 Filtrar por Categoría</h3>
+                <div class="form-group">
+                    <select id="categoriaFiltro" onchange="cargarAlertas()">
+                        <option value="all">Todas las Categorías</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Carnes">Carnes</option>
+                        <option value="Verduras">Verduras</option>
+                        <option value="Insumos">Insumos/Materias Primas</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Lista de alertas -->
+            <div id="alertasContainer">
+                <p style="text-align: center; color: #999;">Cargando alertas...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let todosLosProductos = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await cargarProductosParaConfig();
+            await cargarAlertas();
+        });
+
+        async function cargarProductosParaConfig() {
+            try {
+                const response = await fetch(`${API_URL}/productos`);
+                todosLosProductos = await response.json();
+                actualizarSelectProductos();
+            } catch (error) {
+                console.error('Error al cargar productos:', error);
+            }
+        }
+
+        function actualizarSelectProductos() {
+            const select = document.getElementById('selectProducto');
+            select.innerHTML = '<option value="">Seleccione un producto...</option>';
+
+            todosLosProductos.forEach(producto => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify({ nombre: producto.nombre, categoria: producto.categoria });
+                option.textContent = `${producto.nombre} (${producto.categoria}) - Actual: ${producto.cantidad.toFixed(2)} ${producto.unidad}`;
+                select.appendChild(option);
+            });
+        }
+
+        async function configurarStockMinimo(e) {
+            e.preventDefault();
+
+            const productoData = JSON.parse(document.getElementById('selectProducto').value);
+            const stockMinimo = parseFloat(document.getElementById('inputStockMinimo').value);
+
+            try {
+                const response = await fetch(`${API_URL}/configurar-stock-minimo`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre: productoData.nombre,
+                        categoria: productoData.categoria,
+                        stockMinimo: stockMinimo
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mostrarToast(`✅ Stock mínimo configurado: ${productoData.nombre}`, 'normal');
+                    document.getElementById('formConfig').reset();
+                    await cargarProductosParaConfig();
+                    await cargarAlertas();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al configurar stock mínimo');
+            }
+        }
+
+        async function cargarAlertas() {
+            const categoria = document.getElementById('categoriaFiltro').value;
+            const container = document.getElementById('alertasContainer');
+
+            try {
+                let alertas;
+                if (categoria === 'all') {
+                    const response = await fetch(`${API_URL}/alertas-stock-global`);
+                    alertas = await response.json();
+                } else {
+                    const response = await fetch(`${API_URL}/alertas-stock/${categoria}`);
+                    alertas = await response.json();
+                }
+
+                mostrarAlertas(alertas);
+                actualizarEstadisticas(alertas);
+                
+                // Mostrar notificaciones toast solo la primera vez
+                if (categoria === 'all') {
+                    mostrarNotificacionesIniciales(alertas);
+                }
+
+            } catch (error) {
+                console.error('Error al cargar alertas:', error);
+                container.innerHTML = '<p style="text-align: center; color: #f00;">Error al cargar alertas</p>';
+            }
+        }
+
+        function mostrarAlertas(alertas) {
+            const container = document.getElementById('alertasContainer');
+
+            if (alertas.length === 0) {
+                container.innerHTML = `
+                    <div class="no-alerts">
+                        <h3>✅ ¡Todo bien!</h3>
+                        <p>No hay productos con stock bajo en este momento</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = alertas.map(producto => {
+                const porcentaje = (producto.cantidad / producto.stock_minimo) * 100;
+                const nivel = porcentaje <= 30 ? 'critico' : 'bajo';
+                const nivelTexto = porcentaje <= 30 ? 'CRÍTICO' : 'BAJO';
+
+                return `
+                    <div class="alert-card ${nivel}">
+                        <div class="alert-header">
+                            <div class="alert-producto">${producto.nombre}</div>
+                            <div class="alert-badge ${nivel}">${nivelTexto}</div>
+                        </div>
+                        <div class="alert-info">
+                            <div class="alert-stat">
+                                <span class="alert-stat-label">Stock Actual</span>
+                                <span class="alert-stat-value">${producto.cantidad.toFixed(2)} ${producto.unidad}</span>
+                            </div>
+                            <div class="alert-stat">
+                                <span class="alert-stat-label">Stock Mínimo</span>
+                                <span class="alert-stat-value">${producto.stock_minimo.toFixed(2)} ${producto.unidad}</span>
+                            </div>
+                            <div class="alert-stat">
+                                <span class="alert-stat-label">Nivel</span>
+                                <span class="alert-stat-value">${porcentaje.toFixed(0)}%</span>
+                            </div>
+                            <div class="alert-stat">
+                                <span class="alert-stat-label">Categoría</span>
+                                <span class="alert-stat-value">${producto.categoria}</span>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${nivel}" style="width: ${Math.min(porcentaje, 100)}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function actualizarEstadisticas(alertas) {
+            const criticos = alertas.filter(p => (p.cantidad / p.stock_minimo) <= 0.3).length;
+            const bajos = alertas.filter(p => (p.cantidad / p.stock_minimo) > 0.3 && (p.cantidad / p.stock_minimo) <= 0.7).length;
+            const normales = alertas.filter(p => (p.cantidad / p.stock_minimo) > 0.7).length;
+
+            document.getElementById('statCritico').textContent = criticos;
+            document.getElementById('statBajo').textContent = bajos;
+            document.getElementById('statNormal').textContent = normales;
+        }
+
+        function mostrarNotificacionesIniciales(alertas) {
+            const criticos = alertas.filter(p => (p.cantidad / p.stock_minimo) <= 0.3);
+            
+            criticos.slice(0, 3).forEach((producto, index) => {
+                setTimeout(() => {
+                    mostrarToast(
+                        `🔴 ${producto.nombre}: Solo ${producto.cantidad.toFixed(2)} ${producto.unidad} (Mínimo: ${producto.stock_minimo.toFixed(2)})`,
+                        'critico'
+                    );
+                }, index * 500);
+            });
+        }
+
+        function mostrarToast(mensaje, tipo) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            
+            const icono = tipo === 'critico' ? '🔴' : tipo === 'bajo' ? '🟡' : '🟢';
+            
+            toast.innerHTML = `
+                <div class="toast-header">${icono} Alerta de Stock</div>
+                <div class="toast-body">${mensaje}</div>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Agregar animación de salida
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

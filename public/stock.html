@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock de Inventario - Restaurante</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🍔 Inventario</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">Ingresos/Egresos</a>
+                </li>
+                <li class="nav-item">
+                    <a href="stock.html" class="nav-link active">Stock de Inventario</a>
+                </li>
+                <li class="nav-item">
+                    <a href="alertas.html" class="nav-link">Alertas de Stock</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📦 Stock de Inventario</h1>
+            <p>Visualización del inventario actual</p>
+        </div>
+
+        <div class="stock-content">
+            <div class="stock-filter">
+                <h2 class="section-title">Seleccionar Categoría</h2>
+                <div class="form-group">
+                    <label>Categoría:</label>
+                    <select id="categoriaStock" onchange="cargarStock()">
+                        <option value="">Seleccione una categoría...</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Carnes">Carnes</option>
+                        <option value="Verduras">Verduras</option>
+                        <option value="Insumos">Insumos/Materias Primas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="stockTableContainer" class="stock-table-container hidden">
+                <h2 class="section-title">Productos en <span id="categoriaNombre"></span></h2>
+                
+                <!-- NUEVO: Sección de actualización de precios -->
+                <div class="tasa-cambio" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <label>💱 Tasa de Cambio del Día (Bs/$):</label>
+                        <input type="number" id="tasaCambioStock" step="0.01" min="0" placeholder="Ej: 36.50" style="width: 200px;">
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-primary" onclick="actualizarPreciosCategoria()" style="padding: 10px 20px; white-space: nowrap;">
+                            💰 Actualizar Precios en Bs
+                        </button>
+                        <button class="btn-pdf" onclick="exportarCategoriaPDF()" style="padding: 10px 20px; white-space: nowrap;">
+                            📄 Exportar PDF
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="history-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                                <th>Precio USD</th>
+                                <th>Precio Bs</th>
+                                <th>Última Actualización</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                <div id="pagination" class="pagination">
+                    <button id="btnAnterior" class="btn-pagination" onclick="cambiarPagina(-1)">
+                        ← Anterior
+                    </button>
+                    <span id="paginaInfo" class="pagina-info">Página 1 de 1</span>
+                    <button id="btnSiguiente" class="btn-pagination" onclick="cambiarPagina(1)">
+                        Siguiente →
+                    </button>
+                </div>
+            </div>
+
+            <div id="sinDatos" class="sin-datos">
+                <p>📋 Seleccione una categoría para ver el stock</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let paginaActual = 1;
+        let totalPaginas = 1;
+        let categoriaActual = '';
+
+        async function cargarStock() {
+            const categoria = document.getElementById('categoriaStock').value;
+            
+            if (!categoria) {
+                document.getElementById('stockTableContainer').classList.add('hidden');
+                document.getElementById('sinDatos').classList.remove('hidden');
+                return;
+            }
+
+            categoriaActual = categoria;
+            paginaActual = 1;
+            await obtenerStock();
+        }
+
+        async function obtenerStock() {
+            try {
+                const response = await fetch(`${API_URL}/stock/${categoriaActual}?page=${paginaActual}&limit=10`);
+                const data = await response.json();
+
+                if (data.productos.length === 0) {
+                    document.getElementById('stockTableContainer').classList.add('hidden');
+                    document.getElementById('sinDatos').innerHTML = '<p>📋 No hay productos en esta categoría</p>';
+                    document.getElementById('sinDatos').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('sinDatos').classList.add('hidden');
+                document.getElementById('stockTableContainer').classList.remove('hidden');
+                document.getElementById('categoriaNombre').textContent = categoriaActual;
+
+                totalPaginas = data.totalPages;
+                mostrarProductos(data.productos);
+                actualizarPaginacion();
+
+            } catch (error) {
+                console.error('Error al cargar stock:', error);
+                alert('Error al cargar el stock');
+            }
+        }
+
+        function mostrarProductos(productos) {
+            const tbody = document.getElementById('stockBody');
+            tbody.innerHTML = '';
+
+            productos.forEach(producto => {
+                const fecha = new Date(producto.fecha_creacion);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${producto.nombre}</strong></td>
+                    <td>${producto.cantidad.toFixed(2)}</td>
+                    <td>${producto.unidad}</td>
+                    <td>$${producto.precio_usd ? producto.precio_usd.toFixed(2) : '0.00'}</td>
+                    <td>Bs ${producto.precio_bs ? producto.precio_bs.toFixed(2) : '0.00'}</td>
+                    <td>${fecha.toLocaleDateString('es-VE')} ${fecha.toLocaleTimeString('es-VE')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function cambiarPagina(direccion) {
+            const nuevaPagina = paginaActual + direccion;
+            if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+                paginaActual = nuevaPagina;
+                obtenerStock();
+            }
+        }
+
+        function actualizarPaginacion() {
+            document.getElementById('paginaInfo').textContent = `Página ${paginaActual} de ${totalPaginas}`;
+            document.getElementById('btnAnterior').disabled = paginaActual === 1;
+            document.getElementById('btnSiguiente').disabled = paginaActual === totalPaginas;
+        }
+
+        // NUEVA FUNCIÓN: Actualizar precios en Bs de toda la categoría
+        async function actualizarPreciosCategoria() {
+            if (!categoriaActual) {
+                alert('⚠️ Seleccione una categoría primero');
+                return;
+            }
+
+            const tasaCambio = parseFloat(document.getElementById('tasaCambioStock').value);
+
+            if (!tasaCambio || tasaCambio <= 0) {
+                alert('⚠️ Ingrese una tasa de cambio válida');
+                return;
+            }
+
+            if (!confirm(`¿Está seguro de actualizar TODOS los precios en Bs de la categoría "${categoriaActual}" con la tasa de cambio ${tasaCambio}?\n\nEsto multiplicará cada Precio USD por ${tasaCambio} para obtener el nuevo Precio Bs.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/actualizar-precios/${categoriaActual}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasaCambio })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Precios actualizados exitosamente\n\nProductos actualizados: ${data.productosActualizados}`);
+                    await obtenerStock(); // Recargar la tabla
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error al actualizar precios:', error);
+                alert('❌ Error al actualizar precios');
+            }
+        }
+
+        // NUEVA FUNCIÓN: Exportar PDF de la categoría completa
+        async function exportarCategoriaPDF() {
+            if (!categoriaActual) {
+                alert('⚠️ Seleccione una categoría primero');
+                return;
+            }
+
+            try {
+                // Obtener TODOS los productos de la categoría (sin paginación)
+                const response = await fetch(`${API_URL}/stock-completo/${categoriaActual}`);
+                const productos = await response.json();
+
+                if (productos.length === 0) {
+                    alert('⚠️ No hay productos para exportar en esta categoría');
+                    return;
+                }
+
+                // Crear PDF con jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Título
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`INVENTARIO - ${categoriaActual.toUpperCase()}`, 105, 15, { align: 'center' });
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Fecha de generación: ${new Date().toLocaleString('es-VE')}`, 105, 22, { align: 'center' });
+                doc.text(`Total de productos: ${productos.length}`, 105, 28, { align: 'center' });
+
+                // Línea separadora
+                doc.line(10, 32, 200, 32);
+
+                let yPosition = 40;
+
+                productos.forEach((producto, index) => {
+                    // Verificar si necesitamos nueva página
+                    if (yPosition > 270) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+
+                    // Número de producto
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(`${index + 1}. ${producto.nombre}`, 10, yPosition);
+                    
+                    // Datos del producto
+                    doc.setFont('helvetica', 'normal');
+                    yPosition += 5;
+                    doc.text(`Cantidad: ${producto.cantidad.toFixed(2)} ${producto.unidad}`, 15, yPosition);
+                    
+                    yPosition += 5;
+                    const precioUSD = producto.precio_usd ? `$${producto.precio_usd.toFixed(2)}` : 'N/A';
+                    const precioBs = producto.precio_bs ? `Bs ${producto.precio_bs.toFixed(2)}` : 'N/A';
+                    doc.text(`Precio USD: ${precioUSD}`, 15, yPosition);
+                    doc.text(`Precio Bs: ${precioBs}`, 80, yPosition);
+                    
+                    yPosition += 5;
+                    const fecha = new Date(producto.fecha_creacion);
+                    doc.text(`Última actualización: ${fecha.toLocaleDateString('es-VE')} ${fecha.toLocaleTimeString('es-VE')}`, 15, yPosition);
+
+                    // Línea separadora
+                    yPosition += 3;
+                    doc.line(10, yPosition, 200, yPosition);
+                    yPosition += 7;
+                });
+
+                // Guardar PDF
+                const nombreArchivo = `stock_${categoriaActual.toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+                doc.save(nombreArchivo);
+
+                alert(`✅ PDF generado exitosamente\n\nArchivo: ${nombreArchivo}\nProductos: ${productos.length}`);
+
+            } catch (error) {
+                console.error('Error al generar PDF:', error);
+                alert('❌ Error al generar PDF');
+            }
+        }
+    </script>
+</body>
+</html>
