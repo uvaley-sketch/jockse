@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock de Inventario - Restaurante</title>
     <link rel="stylesheet" href="styles.css">
+<<<<<<< HEAD
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
 </head>
 <body>
     <!-- Barra de navegación -->
@@ -20,7 +23,11 @@
                     <a href="stock.html" class="nav-link active">Stock de Inventario</a>
                 </li>
                 <li class="nav-item">
+<<<<<<< HEAD
                     <a href="alertas.html" class="nav-link">Alertas de Stock</a>
+=======
+                    <a href="historial.html" class="nav-link">Historial</a>
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
                 </li>
             </ul>
         </div>
@@ -50,6 +57,7 @@
             <div id="stockTableContainer" class="stock-table-container hidden">
                 <h2 class="section-title">Productos en <span id="categoriaNombre"></span></h2>
                 
+<<<<<<< HEAD
                 <!-- NUEVO: Sección de actualización de precios -->
                 <div class="tasa-cambio" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     <div style="flex: 1; min-width: 250px;">
@@ -66,6 +74,8 @@
                     </div>
                 </div>
                 
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
                 <div class="history-table">
                     <table>
                         <thead>
@@ -179,6 +189,7 @@
             document.getElementById('btnAnterior').disabled = paginaActual === 1;
             document.getElementById('btnSiguiente').disabled = paginaActual === totalPaginas;
         }
+<<<<<<< HEAD
 
         // NUEVA FUNCIÓN: Actualizar precios en Bs de toda la categoría
         async function actualizarPreciosCategoria() {
@@ -298,6 +309,8 @@
                 alert('❌ Error al generar PDF');
             }
         }
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
     </script>
 </body>
 </html>

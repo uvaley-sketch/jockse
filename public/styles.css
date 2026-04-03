@@ -438,6 +438,7 @@ input:focus, select:focus {
     .pagination {
         flex-wrap: wrap;
     }
+<<<<<<< HEAD
 }
 
 /**---------------------
@@ -676,4 +677,6 @@ input:focus, select:focus {
     font-size: 2em;
     color: #51cf66;
     margin-bottom: 10px;
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
 }

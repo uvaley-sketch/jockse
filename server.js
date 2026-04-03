@@ -192,6 +192,7 @@ app.get('/api/stock/:categoria', (req, res) => {
     );
 });
 
+<<<<<<< HEAD
 // NUEVO: Actualizar precios en Bs de toda una categoría
 app.put('/api/actualizar-precios/:categoria', (req, res) => {
     const { categoria } = req.params;
@@ -238,6 +239,8 @@ app.get('/api/stock-completo/:categoria', (req, res) => {
     );
 });
 
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
 // MODIFICADO: Obtener historial de movimientos - SIN LÍMITE cuando no se especifica
 app.get('/api/historial', (req, res) => {
     // Si NO se pasa el parámetro limit, devolver TODOS los registros
@@ -298,6 +301,7 @@ app.get('/api/historial/:tipo', (req, res) => {
     );
 });
 
+<<<<<<< HEAD
 // NUEVO: Configurar stock mínimo de un producto
 app.put('/api/configurar-stock-minimo', (req, res) => {
     const { nombre, categoria, stockMinimo } = req.body;
@@ -360,6 +364,8 @@ app.get('/api/alertas-stock-global', (req, res) => {
     );
 });
 
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

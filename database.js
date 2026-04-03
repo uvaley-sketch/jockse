@@ -24,7 +24,10 @@ function initDatabase() {
             unidad TEXT NOT NULL,
             precio_usd REAL,
             precio_bs REAL,
+<<<<<<< HEAD
             stock_minimo REAL DEFAULT 0,
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
             fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(nombre, categoria)
         )
@@ -33,6 +36,7 @@ function initDatabase() {
             console.error('Error al crear tabla productos:', err.message);
         } else {
             console.log('✅ Tabla "productos" lista');
+<<<<<<< HEAD
             // Agregar columna stock_minimo si no existe (para bases de datos existentes)
             db.run(`ALTER TABLE productos ADD COLUMN stock_minimo REAL DEFAULT 0`, (err) => {
                 if (err && !err.message.includes('duplicate column')) {
@@ -41,6 +45,8 @@ function initDatabase() {
                     console.log('✅ Columna "stock_minimo" agregada a productos');
                 }
             });
+=======
+>>>>>>> bc7d9c3ee48be191c86ed72dfe4858b055778633
         }
     });
 
